@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lakers vs Wolves - Score Visualization</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <h2>NBA Lakers vs Wolves - October 6, 2024</h2>
+  <div id="chart"></div>
+  <h2>作業說明：</h2>
+  <p>
+  此次作業以台北時間 2024/10/06 上午進行的 NBA 季前熱身賽的比分為資料進行練習。<br/>
+  長條圖以及折線圖分別呈現兩隊之單節得分以及累積得分，X軸代表四個小節，y軸代表得分。<br/>
+  在資料呈現上我選擇使用長條圖方便觀察單節兩隊的得分狀況，並輔助使用折線圖呈現累積得分的變化。<br/>
+  外觀上使用兩隊球衣的顏色以便讀者能更直觀的判斷<br/>
+  </p>
+  <p>資料來源: <a href="https://www.google.com/search?q=lakers+vs+wolves&sca_esv=922da51617062156&sxsrf=ADLYWIImfI_LtjL1PAR3FohxSDGSjYvF9A%3A1728197019842&ei=mzECZ9KJM-OOvr0Puemq-Q0&oq=lakers+vs+w&gs_lp=Egxnd3Mtd2l6LXNlcnAiC2xha2VycyB2cyB3KgIIADIKECMYgAQYJxiKBTILEAAYgAQYkQIYigUyCxAAGIAEGJECGIoFMgsQABiABBiRAhiKBTIFEAAYgAQyBRAAGIAEMgUQABiABDIFEAAYgAQyBRAAGIAEMgUQABiABEiqBlAAWABwAHgBkAEAmAFRoAGYAaoBATK4AQHIAQD4AQGYAgKgAp8BwgIKEAAYgAQYFBiHApgDAJIHATKgB9AN&sclient=gws-wiz-serp#sie=m;/g/11ln198nkg;3;/m/05jvx;dt;fp;1;;;">NBA Official Website</a></p>
+
+  <script>
+    const data = [
+      { quarter: "Q1", Lakers: 23, Wolves: 36 },
+      { quarter: "Q2", Lakers: 26, Wolves: 22 },
+      { quarter: "Q3", Lakers: 39, Wolves: 37 },
+      { quarter: "Q4", Lakers: 19, Wolves: 29 }
+    ];
+
+    // Calculate cumulative scores
+    let LakersCumulative = 0;
+    let WolvesCumulative = 0;
+    data.forEach(d => {
+      LakersCumulative += d.Lakers;
+      WolvesCumulative += d.Wolves;
+      d.LakersCumulative = LakersCumulative;
+      d.WolvesCumulative = WolvesCumulative;
+    });
+
+    const margin = { top: 50, right: 60, bottom: 50, left: 50 };
+    const width = 700 - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+
+    const svg = d3.select("#chart")
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const x0 = d3.scaleBand()
+      .domain(data.map(d => d.quarter))
+      .range([0, width])
+      .padding(0.2);
+
+    const x1 = d3.scaleBand()
+      .domain(["Lakers", "Wolves"])
+      .range([0, x0.bandwidth()])
+      .padding(0.05);
+
+    // Use one shared y-axis for both bar and line charts
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(data, d => Math.max(d.LakersCumulative, d.WolvesCumulative))])
+      .range([height, 0]);
+
+    svg.append("g")
+      .call(d3.axisLeft(y));
+
+    svg.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(x0));
+
+    const color = d3.scaleOrdinal()
+      .domain(["Lakers", "Wolves"])
+      .range(["rgb(253, 185, 39)", "rgb(35, 97, 146)"]);
+
+    const barGroups = svg.selectAll("g.barGroup")
+      .data(data)
+      .enter()
+      .append("g")
+      .attr("transform", d => `translate(${x0(d.quarter)},0)`);
+
+    barGroups.selectAll("rect")
+      .data(d => [{ key: "Lakers", value: d.Lakers }, { key: "Wolves", value: d.Wolves }])
+      .enter()
+      .append("rect")
+      .attr("x", d => x1(d.key))
+      .attr("y", d => y(d.value))
+      .attr("width", x1.bandwidth())
+      .attr("height", d => height - y(d.value))
+      .attr("fill", d => color(d.key));
+
+    // Display scores above the bars
+    barGroups.selectAll("text")
+      .data(d => [{ key: "Lakers", value: d.Lakers }, { key: "Wolves", value: d.Wolves }])
+      .enter()
+      .append("text")
+      .attr("x", d => x1(d.key) + x1.bandwidth() / 2)
+      .attr("y", d => y(d.value) - 10)
+      .attr("text-anchor", "middle")
+      .text(d => d.value)
+      .attr("fill", "black");
+
+    // Adding the line for cumulative score
+    const lineLakers = d3.line()
+      .x(d => x0(d.quarter) + x0.bandwidth() / 2)
+      .y(d => y(d.LakersCumulative));
+
+    const lineWolves = d3.line()
+      .x(d => x0(d.quarter) + x0.bandwidth() / 2)
+      .y(d => y(d.WolvesCumulative));
+
+    // Draw Lakers cumulative score line
+    svg.append("path")
+      .datum(data)
+      .attr("fill", "none")
+      .attr("stroke", "rgb(253, 185, 39)")
+      .attr("stroke-width", 2)
+      .attr("d", lineLakers);
+
+    // Draw Wolves cumulative score line
+    svg.append("path")
+      .datum(data)
+      .attr("fill", "none")
+      .attr("stroke", "rgb(35, 97, 146)")
+      .attr("stroke-width", 2)
+      .attr("d", lineWolves);
+
+    // Add labels for cumulative points on the line
+    svg.selectAll(".labelLakers")
+      .data(data)
+      .enter()
+      .append("text")
+      .attr("x", d => x0(d.quarter) + x0.bandwidth() / 2)
+      .attr("y", d => y(d.LakersCumulative) + 18)
+      .attr("text-anchor", "middle")
+      .text(d => d.quarter !== "Q1" ? d.LakersCumulative : "")
+      .attr("fill", "rgb(253, 185, 39)");
+
+    svg.selectAll(".labelWolves")
+      .data(data)
+      .enter()
+      .append("text")
+      .attr("x", d => x0(d.quarter) + x0.bandwidth() / 2)
+      .attr("y", d => y(d.WolvesCumulative) - 10)
+      .attr("text-anchor", "middle")
+      .text(d => d.quarter !== "Q1" ? d.WolvesCumulative : "")
+      .attr("fill", "rgb(35, 97, 146)");
+
+    svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", height + margin.bottom - 10)
+      .attr("text-anchor", "middle")
+      .text("Quarter");
+
+    svg.append("text")
+      .attr("x", -height / 2)
+      .attr("y", -margin.left + 20)
+      .attr("text-anchor", "middle")
+      .attr("transform", "rotate(-90)")
+      .text("Points");
+
+    svg.append("rect")
+      .attr("x", width - 100)  // Position the rectangle
+      .attr("y", 70)
+      .attr("width", 20)
+      .attr("height", 20)
+      .style("fill", "rgb(253, 185, 39)");
+
+    svg.append("text")
+      .attr("x", width - 70)  // Position the text next to the rectangle
+      .attr("y", 85)
+      .attr("text-anchor", "start")
+      .style("fill", "black")
+      .text("Lakers");
+
+    // Add legend for Wolves
+    svg.append("rect")
+      .attr("x", width - 100)  // Position the rectangle
+      .attr("y", 100)
+      .attr("width", 20)
+      .attr("height", 20)
+      .style("fill", "rgb(35, 97, 146)");
+
+    svg.append("text")
+      .attr("x", width - 70)  // Position the text next to the rectangle
+      .attr("y", 115)
+      .attr("text-anchor", "start")
+      .style("fill", "black")
+      .text("Wolves");
+
+  </script>
+</body>
+</html>
+
